@@ -1,0 +1,19 @@
+Revision history for Perl extension OS2::SOM.
+
+0.01  Fri Oct 22 20:05:13 1999
+	- original version; created by h2xs 1.20 with options
+		-A -fn OS2::SOM -v 0.01
+
+	Calling non-existing SOM method is a fatal error?!
+	Only primitive types of parameters and return value are supported.
+	Only in-parameters are supported.
+	No memory management is done at all.
+	Exception is not analysed.
+	SOM Objects have type SOMObjectPtr, SOM Classes have type SOMClassPtr.
+	Methods may be dispatched only when a signature is explicitely
+	 described.
+	Only local SOM is supported.
+	Tested with SOMObjects 2.0 on OS/2 with EMX only.
+	Renamed to SOM.
+
+	Give TOOLKIT=p:/ath/to/toolkit option to MakeMaker.
