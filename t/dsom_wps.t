@@ -33,6 +33,8 @@ print "ok 4\n";
 
 $serverUp = IsWPDServerReady();
 
+$daemonUp = $serverUp = 1 unless $ENV{PERLTEST_SHUTDOWN_SERVERS};
+
 $server = eval {Ensure_WPDServer_Up(100,0,1), 1};	# Verbose
 print "not " unless $server;
 print "ok 5\n";

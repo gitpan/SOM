@@ -68,6 +68,7 @@ WriteMakefile(
     'DEFINE'	=> "$def -DPERL_POLLUTE=1",     # e.g., '-DHAVE_SOMETHING' 
     'INC'	=> $inc,     # e.g., '-I/usr/include/other' 
     OBJECT	=> '$(O_FILES)',	# Several .xs files
-    dist	=> {TARFLAGS => 'WILL-RUIN-ANIMAL.DLL....USE-zipdist'},
+    dist	=> {TARFLAGS => 'WILL-RUIN-ANIMAL.DLL....USE-zipdist',
+		    DIST_DEFAULT => 'zipdist'},
     @opt,
 );

@@ -50,7 +50,7 @@ BEGIN {
   require DynaLoader;
   require Exporter;
 
-  $VERSION = '0.06';
+  $VERSION = '0.0601';
   @ISA = qw(Exporter DynaLoader);
 
   bootstrap SOM $VERSION;

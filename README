@@ -22,6 +22,11 @@ as reliable as I want it.  I put workarounds against many
 bugs/undocumented-limitations, but still things are not that good.  Things
 run smoothly if the deamons are already running.
 
+Thus the test scripts won't shutdown the servers unless
+$ENV{PERLTEST_SHUTDOWN_SERVERS} is true.
+
+=====================  What to do if the servers get stuck?
+
 Sometimes killing WPS and SOMDD (in this order?) helps.  There is a tool
 in utils/dsom_shutdown_servers.pl which performs the shutdown of
 DSOM in a documented way (with many fallbacks), but it usually blocks.

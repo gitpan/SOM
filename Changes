@@ -41,3 +41,5 @@ Revision history for Perl extension OS2::SOM.
 0.05	???
 0.06	Better auto-detection of the toolkit location, add PERL_POLLUTE.
 	t/animal.t and t/wrong_method.t put a dir on SOMIR instead of a file.
+0.0601  Do not shutdown servers during tests unless $ENV{PERLTEST_SHUTDOWN_SERVERS};
+	Change DIST_DEFAULT to zipdist.
