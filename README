@@ -1,0 +1,10 @@
+Currently only OS/2 is supported.
+Start Makefile.PL as this:
+
+  perl Makefile.PL TOOLKIT=F:/TOOLKIT
+
+(we need to know the path to the toolkit header files and libraries).
+
+Test failures:
+
+t/wrong_method.t fails on tests 4,5.  This is a bug.

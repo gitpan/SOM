@@ -1,6 +1,5 @@
 #include <somcls.h>
 #include <somobj.h>
-#include <repostry.h>
 
 /* In SOM 'any' is struct */
 #define any Perlish_any
@@ -137,6 +136,22 @@ PSOM_Dispatch0(SOMObject *obj, char *name)
   return rc;
 }
 
+/* SOMObject_somDispatch() exits the process if method cannot be resolved */
+static int
+MYsomDispatch( SOMObject *obj,    /* target for somDispatch */
+	       somToken *ret,    /* dispatched method result */
+	       somId methId,  /* the somId for meth */
+	       va_list start_val)
+{
+    SOMClass *class = _somGetClass(obj);
+    somMethodData    md;
+    int rc = _somGetMethodData(class, methId, &md);
+
+    if (!rc)
+	croak("Can't resolve a SOM method");
+    return somApply(obj, ret, &md, start_val);
+}
+
 #define PSOM_NewObject(classobj) ((SOMObject *) _somNew(classobj))
 
 #define ttk_void() tk_void
@@ -153,14 +168,23 @@ PSOM_Dispatch0(SOMObject *obj, char *name)
 #define ttk_string() tk_string
 #define ttk_pointer() tk_pointer
 
-#define tRepositoryNew()	((SOMObject*)RepositoryNew())
 #define tSOMClass()		_SOMClass
 #define tSOMObject()		_SOMObject
 #define tSOMClassMgr()		_SOMClassMgr
 #define tSOMClassMgrObject()	SOMClassMgrObject
 
+#define ptrsize()		sizeof(char*)
+
+/* Boot sections of daughter .xs files: */
+extern XS(boot_DSOM);
+extern XS(boot_SOMIr);
 
 MODULE = SOM		PACKAGE = SOM	PREFIX = t
+
+PROTOTYPES: ENABLE
+
+int
+ptrsize()
 
 int
 ttk_void()
@@ -201,9 +225,6 @@ ttk_string()
 int
 ttk_pointer()
 
-SOMObject *
-tRepositoryNew()
-
 SOMClass *
 tSOMClass()
 
@@ -221,6 +242,8 @@ MODULE = SOM		PACKAGE = SOM	PREFIX = PSOM_
 BOOT:
  somEnvironmentNew();
  main_ev = somGetGlobalEnvironment();
+ newXS("SOM::bootstrap_DSOM", boot_DSOM, file);
+ newXS("SOM::bootstrap_SOMIr", boot_SOMIr, file);
 
 SOMClass *
 PSOM_Find_Class(name, major = 0, minor = 0, dll = 0)
@@ -239,6 +262,10 @@ MODULE = SOM		PACKAGE = SOMObjectPtr	PREFIX = _som
 
 SOMClass *
 _somGetClass(obj)
+    SOMObject *obj
+
+char *
+_somGetClassName(obj)
     SOMObject *obj
 
 MODULE = SOM		PACKAGE = SOMObjectPtr	PREFIX = PSOM_
@@ -365,7 +392,7 @@ PPCODE:
 	croak("Too many arguments");
 
     MYsomVaBuf_get_valist(vb, &start_val);
-    rc = SOMObject_somDispatch(
+    rc = MYsomDispatch(
             obj,    /* target for somDispatch */
             ret,    /* dispatched method result */
             methId,  /* the somId for meth */

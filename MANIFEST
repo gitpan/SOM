@@ -1,7 +1,12 @@
 Changes
+DSOM.xs
 MANIFEST
 Makefile.PL
+README
 SOM.pm
 SOM.xs
-test.pl
+t/animal.t
+t/dsom.t
+t/ir.t
+t/wrong_method.t
 typemap
