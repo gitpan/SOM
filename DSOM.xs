@@ -1,5 +1,8 @@
 #define INCL_DOSERRORS
 #define INCL_WINERRORS
+
+/* To include PMERR_* we use... */
+#define  SOM2VERSION
 #include "os2.h"
 
 #include <somcls.h>
@@ -14,6 +17,13 @@
 #include "perl.h"
 #include "XSUB.h"
 
+#include "common_init.h"
+
+/* We use xsubpp from 5.005_64, and it puts some unexpected macros */
+#ifdef CUSTOM_XSUBPP
+#  define aTHX_
+#endif
+
 #undef any
 
 /* Why needed??? */
@@ -21,9 +31,6 @@
 #define ClassManager WPClassManager
 
 static int rc;
-
-#define cWinRestartSOMDD(start)	(!CheckOSError(WinRestartSOMDD(start)))
-#define cWinRestartWPDServer(start) (!CheckOSError(WinRestartWPDServer(start)))
 
 #define pSOMClassMgrObject()	(SOMClassMgrObject)
 #define pSOMD_ObjectMgr()	(SOMD_ObjectMgr)
@@ -34,6 +41,33 @@ static int rc;
 #define pSYSTEM_EXCEPTION()	SYSTEM_EXCEPTION
 #define pUSER_EXCEPTION()	USER_EXCEPTION
 #define pNO_EXCEPTION()		NO_EXCEPTION
+#define pPMERR_WPDSERVER_IS_ACTIVE()	PMERR_WPDSERVER_IS_ACTIVE
+#define pPMERR_SOMDD_IS_ACTIVE()	PMERR_SOMDD_IS_ACTIVE
+#define pPMERR_WPDSERVER_NOT_STARTED()	PMERR_WPDSERVER_NOT_STARTED
+#define pPMERR_SOMDD_NOT_STARTED()	PMERR_SOMDD_NOT_STARTED
+
+#define ccWinRestartSOMDD(start)	(!CheckOSError(WinRestartSOMDD(start)))
+#define ccWinRestartWPDServer(start) (!CheckOSError(WinRestartWPDServer(start)))
+
+static bool
+cWinRestartSOMDD(start)
+    bool start;
+{
+   perl_hmq_GET(0);
+   start = ccWinRestartSOMDD(start);
+/*   perl_hmq_UNSET(0);	*/
+   return start;
+}
+
+static bool
+cWinRestartWPDServer(start)
+    bool start;
+{
+   perl_hmq_GET(0);
+   start = ccWinRestartWPDServer(start);
+/*   perl_hmq_UNSET(0);	*/
+   return start;
+}
 
 static char *
 Env_id(Environment *ev)
@@ -159,6 +193,18 @@ pUSER_EXCEPTION()
 
 int
 pNO_EXCEPTION()
+
+IV
+pPMERR_WPDSERVER_IS_ACTIVE()
+
+IV
+pPMERR_SOMDD_IS_ACTIVE()
+
+IV
+pPMERR_WPDSERVER_NOT_STARTED()
+
+IV
+pPMERR_SOMDD_NOT_STARTED()
 
 MODULE = DSOM		PACKAGE = SOM::SOMDeamon	PREFIX = SOMD_
 

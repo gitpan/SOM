@@ -5,11 +5,6 @@ use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
 
 @SOMClassPtr::ISA = ('SOMObjectPtr');
 
-require Exporter;
-require DynaLoader;
-
-@ISA = qw(Exporter DynaLoader);
-
 # Items to export into callers namespace by default. Note: do not export
 # names by default without a very good reason. Use EXPORT_OK instead.
 # Do not simply export all your public functions/methods/constants.
@@ -31,11 +26,16 @@ require DynaLoader;
    tk_enum
    tk_string
    tk_pointer
+   tk_objref
 ) ], 'class' => [ qw(
    Find_Class RepositoryNew SOMClassMgr SOMClass SOMObject SOMClassMgrObject
    Init_WP_Classes
 ) ], 'dsom' => [ qw(
    IsSOMDDReady RestartSOMDD IsWPDServerReady RestartWPDServer Ensure_Servers
+   PMERR_WPDSERVER_IS_ACTIVE PMERR_WPDSERVER_NOT_STARTED PMERR_SOMDD_IS_ACTIVE
+   PMERR_SOMDD_NOT_STARTED
+   Ensure_WPDServer_Up Ensure_SOMDD_Up
+   Ensure_WPDServer_Down Ensure_SOMDD_Down Ensure_Servers_Down
 ) ], 'environment' => [ qw(
    SYSTEM_EXCEPTION USER_EXCEPTION NO_EXCEPTION CreateLocalEnvironment
 ) ] );
@@ -45,11 +45,19 @@ require DynaLoader;
 @EXPORT = qw(
 
 );
-$VERSION = '0.03';
 
-bootstrap SOM $VERSION;
-SOM::bootstrap_DSOM($VERSION);
-SOM::bootstrap_SOMIr($VERSION);
+BEGIN {
+  require DynaLoader;
+  require Exporter;
+
+  $VERSION = '0.06';
+  @ISA = qw(Exporter DynaLoader);
+
+  bootstrap SOM $VERSION;
+  SOM::bootstrap_DSOM($VERSION);
+  SOM::bootstrap_SOMIr($VERSION);
+  SOM::bootstrap_SOMObject($VERSION);
+}
 
 @ObjectMgrPtr::ISA = qw(SOMObjectPtr);
 @SOMDObjectMgrPtr::ISA = qw(ObjectMgrPtr);
@@ -79,14 +87,113 @@ sub EnvironmentPtr::Check {
 
 my ($dsom_server, $wpd_server);
 
+sub Ensure_AServer_Up {		# Args: isSOMDD, delay_wait, remember, verbose
+  my ($do_DD, $wait) = (shift, shift);
+
+  # First: start SOMDD
+  Ensure_SOMDD_Up((($wait and $wait > 100) ? $wait : 100), @_) unless $do_DD;
+
+  my $up = ($do_DD ? IsSOMDDReady() : IsWPDServerReady());
+  ($do_DD ? $dsom_server : $wpd_server) = $up
+    if shift and not defined ($do_DD ? $dsom_server : $wpd_server);
+  
+  my $server = ($do_DD ? 'SOMDD' : 'WPDServer');
+  my $verbose = shift;
+  print STDERR "# $server running = '$up'.\n" if $verbose;
+  return if $up;
+
+  print STDERR "# Starting $server...\n" if $verbose;
+  $up = ($do_DD ? RestartSOMDD(1) : RestartWPDServer(1));
+  print STDERR "# Startup reported OK...\n" if $verbose and $up;
+  if (!$up) {
+     # ???  Such a $^E may be set due to race conditions...
+     $up = 1
+       if $^E == ($do_DD ? PMERR_SOMDD_IS_ACTIVE : PMERR_WPDSERVER_IS_ACTIVE);
+     print STDERR "# $server running unexpectedly, race condition?"
+       if $verbose and $up;
+  }
+  die "Unable to start SOMDD: $^E" unless $up;
+
+  # Now the server will start, but there may be delays
+  return unless $wait;
+  my ($t, $until) = (0.1);
+  until ($do_DD ? IsSOMDDReady() : IsWPDServerReady()) {
+    print STDERR "# $server still not running, waiting...\n" if $verbose;
+    my $t1 = times();
+    $until = $t1 + $wait unless defined $until;
+    if ($t1 >= $until) {
+      die "Wait for $server start unsuccessful" if $wait != 0;
+    }
+    select(undef,undef,undef,$t);	# ms-sleep
+    $t *= 1.2;
+  }
+  print STDERR "# $server reports itself started.\n" if $verbose;
+}
+
+sub Ensure_SOMDD_Up {
+  Ensure_AServer_Up(1, @_);
+}
+
+sub Ensure_WPDServer_Up {
+  Ensure_AServer_Up(0, @_);
+}
+
+sub Ensure_AServer_Down {		# Args: isSOMDD, delay_wait, verbose
+  my ($do_DD, $wait) = (shift, shift);
+
+  # First: shutdown WPDServer
+  Ensure_WPDServer_Down((($wait and $wait > 100) ? $_[1] : 100),@_) if $do_DD;
+  my $up = ($do_DD ? IsSOMDDReady() : IsWPDServerReady());
+
+  my $server = ($do_DD ? 'SOMDD' : 'WPDServer');
+  my $verbose = shift;
+  print STDERR "# $server running = '$up'.\n" if $verbose;
+  return unless $up;
+
+  print STDERR "# Shutting down $server...\n" if $verbose;
+  $up = not ( $do_DD ? RestartSOMDD(0) : RestartWPDServer(0) );
+  print STDERR "# Shutdown reported OK...\n" if $verbose and not $up;
+  if ($up) {
+     # ???  Such a $^E may be set due to race conditions...
+     $up = 0 if $^E == ($do_DD ? PMERR_SOMDD_NOT_STARTED
+			       : PMERR_WPDSERVER_NOT_STARTED);
+     print STDERR "# $server stopped unexpectedly, race condition?"
+       if $verbose and not $up;
+
+  }
+  die "Unable to shutdown WPDServer: $^E" if $up;
+
+  # Now the server will shutdown, but there may be delays
+  return unless $wait;
+  my ($t, $until) = (0.1);
+  while ($do_DD ? IsSOMDDReady() : IsWPDServerReady()) {
+    print STDERR "# $server still running, waiting...\n" if $verbose;
+    my $t1 = times();
+    $until = $t1 + $wait unless defined $until;
+    if ($t1 >= $until) {
+      my $server = ($do_DD ? 'SOMDD' : 'WPDServer');
+      die "Wait for $server shutdown unsuccessful" if $wait != 0;
+    }
+    select(undef,undef,undef,$t);	# ms-sleep
+    $t *= 1.2;
+  }
+  print STDERR "# $server reports itself terminated.\n" if $verbose;
+}
+
+sub Ensure_WPDServer_Down {		# Arguments: delay_wait
+  Ensure_AServer_Down(0, @_);
+}
+
+sub Ensure_SOMDD_Down {
+  Ensure_AServer_Down(1, @_);
+}
+
 sub Ensure_Servers {
-  my ($daemonUp, $serverUp);
-  RestartSOMDD(1) or die "Could not restart SOMDD: $^E"
-    unless $daemonUp = IsSOMDDReady();
-  RestartWPDServer(1) or die "Could not restart WPDServer: $^E"
-    unless $serverUp = IsWPDServerReady();
-  $dsom_server	= $daemonUp    if shift and not $dsom_server;
-  $wpd_server	= $serverUp    if shift and not $wpd_server;
+  Ensure_WPDServer_Up(100,1);		# Memorize the state
+}
+
+sub Ensure_Servers_Down {
+  Ensure_SOMDD_Down(100);
 }
 
 my $ptrsize = ptrsize();
@@ -124,14 +231,8 @@ for my $p (qw( ContainedPtr::within.ContainedContainer
 
 # Shutdown:
 END {
-  RestartWPDServer(0) if $wpd_server;
-  return unless $dsom_server;
-  my $c = 15;			# Wait for 15 sec for shutdown
-  my $ok = 1;
-
-  sleep 1 while --$c>0 and IsWPDServerReady();
-  warn "Could not wait for shutdown of WPDServer!\n" if $c <= 0;
-  RestartSOMDD(0) or warn "Could not shutdown SOMDD: $^E";
+  Ensure_WPDServer_Down(100) if $wpd_server;
+  Ensure_SOMDD_Down(100) if $dsom_server;
 }
 
 1;
@@ -163,6 +264,7 @@ SOM - Perl extension for access to SOM and DSOM objects.
    tk_octet
    tk_enum
    tk_string
+   tk_objref
    tk_pointer		# Not yet?
    tk_void		# Output only
 
@@ -442,6 +544,9 @@ calls are doing.
 DSOM to WPS requires two servers: one is a SOMD server (a separate
 process), another is WPSD server (extra thread(s) in WPS shell
 process). To check existence: SOM::IsSOMDDReady(), SOM::IsWPDServerReady().
+Possible error codes in $^E: PMERR_WPDSERVER_IS_ACTIVE(),
+PMERR_WPDSERVER_NOT_STARTED(), PMERR_SOMDD_IS_ACTIVE(), 
+PMERR_SOMDD_NOT_STARTED() (all in package SOM, exportable on C<:dsom>).
 
 To create: C<SOM::RestartSOMDD(1)>, C<SOM::RestartWPDServer(1)>.
 
@@ -559,7 +664,7 @@ Shut down dispatchers:
 
 =head1 EXPORT
 
-None by default.  Tags C<:types>, C<:class>.
+None by default.  Tags C<:types>, C<:class>, C<:dsom>, C<:environment>.
 
 =head1 AUTHOR
 

@@ -22,16 +22,27 @@ print "ok 1\n";
 # of the test code):
 
 $daemonUp = IsSOMDDReady();
-print "ok 2 # Daemon running = $daemonUp\n";
+print "ok 2\n";
 
-RestartSOMDD(1) or die "Could not restart SOMDD: $^E" unless $daemonUp;
+# RestartSOMDD(1) or die "Could not restart SOMDD: $^E" unless $daemonUp;
+Ensure_SOMDD_Up(100,0,1);				# Verbose
 print "ok 3\n";
 
-$serverUp = IsWPDServerReady();
-print "ok 4 # Server running = $serverUp\n";
+die "Daemon did not start, when reported as started" unless IsSOMDDReady();
+print "ok 4\n";
 
-RestartWPDServer(1) or die "Could not restart WPDServer: $^E" unless $serverUp;
+$serverUp = IsWPDServerReady();
+
+$server = eval {Ensure_WPDServer_Up(100,0,1), 1};	# Verbose
+print "not " unless $server;
 print "ok 5\n";
+
+($daemonUp or Ensure_SOMDD_Down(100,1)), exit
+  unless $server;		# Verbose
+
+# Will it help here?  No...
+print "# 10-sec sleep...\n" unless $serverUp;
+sleep 10 unless $serverUp;
 
 $ev = SOM::CreateLocalEnvironment();
 print "not " unless $ev;
@@ -56,7 +67,7 @@ print "ok 10\n";
 $SOM_ClassMgr->MergeInto($WPS_ClassMgr); # In fact opposite direction
 print "ok 11\n";
 
-Init_WP_Classes();		# Otherwise cannot GetClassObj('WPFolder')
+# Init_WP_Classes();		# Otherwise cannot GetClassObj('WPFolder')
 print "ok 12\n";
 
 $server = SOM::SOMDeamon::ObjectMgr->FindServerByName($ev, "wpdServer")
@@ -66,16 +77,36 @@ print "ok 13\n";
 $ev->CheckAndWarn or print "not ";
 print "ok 14\n";
 
-$classFolder = $classFolder = $server->GetClassObj($ev, "WPFolder")
+$classObj = $server->GetClassObj($ev, "SOMObject")
   or print "not ";
 print "ok 15\n";
 
 $ev->CheckAndWarn or print "not ";
 print "ok 16\n";
 
-print "ok $_\n" for 17..22;
+sub make_template_oidl {
+  join '', 'o', map chr(33 + $_), @_;
+}
 
-sleep 2;			# Otherwise Server would not yet start?
+# XXXX	Here is the fragile place.  If we do not put this delay, then
+#	we time out during this call, and eventually segfault...
+
+# No, it does not help the second time in the row...
+#sleep 5 unless $serverUp;
+
+$classObj and $obj1 = $classObj->NewObject;
+print "not " unless $obj1;
+
+print "ok 17\n";
+
+print "not " unless $obj1 and $obj1->GetClassName eq "SOMObject";
+
+print "ok 18\n";
+print "# Name: '", ($obj1 and $obj1->GetClassName), "'.\n";
+
+print "ok $_\n" for 19..22;
+
+# sleep 2;			# Otherwise Server would not yet start?
 
 SOM::SOMDeamon::ObjectMgr->ReleaseObject($ev, $server);
 print "ok 23\n";
@@ -86,27 +117,17 @@ print "ok 24\n";
 SOM::SOMDeamon::Uninit($ev);
 print "ok 25\n";
 
-$ev->CheckAndWarn or print "not ";
+# $ev->CheckAndWarn or print "not ";
 print "ok 26\n";
 
-RestartWPDServer(0) or print "# Could not shutdown WPDServer: $^E\nnot "
-  unless $serverUp;
+Ensure_WPDServer_Down(100,1) unless $serverUp;		# Verbose
+#RestartWPDServer(0) or print "# Could not shutdown WPDServer: $^E\nnot "
+#  unless $serverUp;
 print "ok 27\n";
 
-if (not $daemonUp) {
-  my $c = 30;
-  my $ok = 1;
-
-  sleep 1 while --$c>0 and IsWPDServerReady();
-  print "ok 28\n";
-  $ok = 0, warn "Could not wait for shutdown of WPDServer!\n" if $c <= 0;
-  RestartSOMDD(0) or $ok = 0, warn "Could not shutdown SOMDD: $^E";
-  print "ok 29\n";
-  $ok or print "not ";
-} else {
-  print "ok 28\n";
-  print "ok 29\n";
-}
+Ensure_SOMDD_Down(100,1) unless $daemonUp;		# Verbose
+print "ok 28\n";
+print "ok 29\n";
 print "ok 30\n";
 
 

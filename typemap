@@ -1,4 +1,9 @@
 SOMObject *				T_PTROBJ
+somId					T_PTROBJ
+somToken				T_PTROBJ
+som3AssignCtrl *			T_PTROBJ
+som3InitCtrl *				T_PTROBJ
+som3DestructCtrl *			T_PTROBJ
 SOMClass  *				T_PTROBJ
 SOMClassManager  *			T_PTROBJ
 Environment  *				T_PTROBJ
@@ -13,6 +18,9 @@ TypeCode				T_PTROBJ
 ParameterDef *				T_PTROBJ
 OperationDef *				T_PTROBJ
 SOM__::any				T_OPAQUE_STRUCT
+boolean					T_BOOL
+octet					T_IV
+string					T_PV
 
 #############################################################################
 INPUT

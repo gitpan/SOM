@@ -8,6 +8,13 @@
 #include "perl.h"
 #include "XSUB.h"
 
+#include "common_init.h"
+
+/* We may use xsubpp from 5.005_64, and it puts some unexpected macros */
+#ifdef CUSTOM_XSUBPP
+#  define aTHX_
+#endif
+
 #undef any
 
 #define tk_shift_	(' ' + 1)
@@ -89,6 +96,9 @@ MYsomVaBuf_add(MYsomVaBuf vb, char *arg, int type)
         case tk_pointer:
 	    va_arg(vb->current, void*) = *(void**)arg;
 	    break;
+        case tk_objref:
+	    va_arg(vb->current, SOMObject*) = *(SOMObject**)arg;
+	    break;
 	}
   return 1;
 }
@@ -167,6 +177,7 @@ MYsomDispatch( SOMObject *obj,    /* target for somDispatch */
 #define ttk_enum() tk_enum
 #define ttk_string() tk_string
 #define ttk_pointer() tk_pointer
+#define ttk_objref() tk_objref
 
 #define tSOMClass()		_SOMClass
 #define tSOMObject()		_SOMObject
@@ -174,10 +185,6 @@ MYsomDispatch( SOMObject *obj,    /* target for somDispatch */
 #define tSOMClassMgrObject()	SOMClassMgrObject
 
 #define ptrsize()		sizeof(char*)
-
-/* Boot sections of daughter .xs files: */
-extern XS(boot_DSOM);
-extern XS(boot_SOMIr);
 
 MODULE = SOM		PACKAGE = SOM	PREFIX = t
 
@@ -225,6 +232,9 @@ ttk_string()
 int
 ttk_pointer()
 
+int
+ttk_objref()
+
 SOMClass *
 tSOMClass()
 
@@ -244,6 +254,7 @@ BOOT:
  main_ev = somGetGlobalEnvironment();
  newXS("SOM::bootstrap_DSOM", boot_DSOM, file);
  newXS("SOM::bootstrap_SOMIr", boot_SOMIr, file);
+ newXS("SOM::bootstrap_SOMObject", boot_SOMObject, file);
 
 SOMClass *
 PSOM_Find_Class(name, major = 0, minor = 0, dll = 0)
@@ -284,6 +295,7 @@ PPCODE:
   {
     union { short s; unsigned short us; long l; unsigned long ul;
 	    char c; unsigned char uc; float f; double d; char *cp; void *vp;
+	    SOMObject *op;
     } ret_buffer, par_buffer;
     va_list start_val;
     MYsomVaBuf vb;
@@ -294,6 +306,7 @@ PPCODE:
     somId methId = SOM_IdFromString(meth);
     int rc;
     SV *retsv;
+    IV tmp;
 
     if (!*t)
 	croak("A zero length template");
@@ -324,6 +337,7 @@ PPCODE:
     case tk_octet:
     case tk_enum:
     case tk_string:
+    case tk_objref:
 //    case tk_pointer:
 	ret = (somToken *)&ret_buffer;
     }
@@ -378,6 +392,12 @@ PPCODE:
 	    break;
         case tk_string:
 	    par_buffer.cp = SvPV(ST(i), n_a);
+	    break;
+	case tk_objref:
+	    if (!sv_derived_from(ST(i), "SOMObjectPtr"))
+		croak("Argument %d is not of type SOMObjectPtr", i);
+	    tmp = SvIV((SV*)SvRV(ST(i)));
+	    par_buffer.op = (SOMObject *) tmp;
 	    break;
 /*        case tk_pointer:
 	    par_buffer.vp = (void*)SvPV(ST(i), n_a);
@@ -442,6 +462,9 @@ PPCODE:
 	break;
     case tk_string:
 	sv_setpv(retsv, ret_buffer.cp);
+	break;
+    case tk_objref:
+	sv_setref_pv(retsv, "SOMObjectPtr", (void*)ret_buffer.op);
 	break;
     }
     PUSHs(retsv);

@@ -11,13 +11,21 @@ BEGIN {
   open STDOUT, '> .tout' or die "Cannot reopen STDOUT to .tout: $!";
 }
 
-BEGIN { $| = 1; print  SAVEOUT "1..35\n"; }
+BEGIN { $| = 1; print  SAVEOUT "1..37\n"; }
 END {print  SAVEOUT "not ok 1\n" unless $loaded;}
 use SOM ':types', ':class';
 $loaded = 1;
 print  SAVEOUT "ok 1\n";
 
 ######################### End of black magic.
+
+$ext = Cwd::extLibpath(1);		# 1: endLIBPATH
+$ext ||= '';
+$ext =~ /;$/ or $ext .= ';';
+$cwd = Cwd::sys_cwd();
+$dir = -d 't' ? 'utils' : '..\utils';
+Cwd::extLibpath_set("$ext;$cwd\\$dir", 1);
+$ENV{SOMIR} .= ";$cwd\\$dir\\ORXSMP.IR";
 
 # Insert your test code below (better if it prints "ok 13"
 # (correspondingly "not ok 13") depending on the success of chunk 13
@@ -26,7 +34,8 @@ print  SAVEOUT "ok 1\n";
 $class = Find_Class("Animal", 0, 0);
 
 print  SAVEOUT <<EOP unless $class;
-# Could not find class Animal from toolkit REXX SOM sample
+# Error: $^E
+# Could not find class Animal from the toolkit's REXX SOM sample:
 # Make sure you build this class in \$TOOLKIT/samples/rexx/som
 # put animals.dll on LIBPATH, and have \$ENV{SOMIR} contain
 #   \$TOOLKIT\\SAMPLES\\REXX\\SOM\\ANIMAL\\ORXSMP.IR
@@ -142,4 +151,15 @@ $clclmo = $classmgrO->GetClass;
 print  SAVEOUT "ok 34\n";
 $$clclmo eq $$classmgr or print  SAVEOUT "not ";
 print  SAVEOUT "ok 35\n";
+
+$isa_string = make_template_oidl tk_boolean, tk_objref;
+$dog_is_animal = $class1->Dispatch_templ("somDescendedFrom",
+					 $isa_string, $class);
+$dog_is_animal or print  SAVEOUT "not ";
+print  SAVEOUT "ok 36\n";
+
+$animal_is_dog = $class->Dispatch_templ("somDescendedFrom",
+					 $isa_string, $class1);
+$animal_is_dog and print  SAVEOUT "not ";
+print  SAVEOUT "ok 37\n";
 

@@ -23,6 +23,14 @@ print  SAVEOUT "ok 1\n";
 # (correspondingly "not ok 13") depending on the success of chunk 13
 # of the test code):
 
+$ext = Cwd::extLibpath(1);		# 1: endLIBPATH
+$ext ||= '';
+$ext =~ /;$/ or $ext .= ';';
+$cwd = Cwd::sys_cwd();
+$dir = -d 't' ? 'utils' : '..\utils';
+Cwd::extLibpath_set("$ext;$cwd\\$dir", 1);
+$ENV{SOMIR} .= ";$cwd\\$dir\\ORXSMP.IR";
+
 $class = Find_Class("Dog", 0, 0);
 
 print  SAVEOUT <<EOP unless $class;

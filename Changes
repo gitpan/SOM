@@ -27,3 +27,17 @@ Revision history for Perl extension OS2::SOM.
 	Separate DSOM part and Repository part into a separate .xs files.
 	Remove -fomit-frame-pointer flag if present (probably gcc2.8.1 bug).
 	Better docs.
+
+0.04
+	tk_objref supported (not in `any', on input no check on subclass).
+	Constants for SOMD specific $^E errors.
+	SOMObject::IDL class added; has all the SOMObject methods which do not
+	  take va_list (basically, without *Dispatch).
+	Startup of DSOM much more reliable (in tests).
+	Include animals.dll and ORXSMP.IR for testing purposes.
+	Autodeduce location of the toolkit if URE is installed in the
+	  toolkit, or ObjectUtility is registered.
+
+0.05	???
+0.06	Better auto-detection of the toolkit location, add PERL_POLLUTE.
+	t/animal.t and t/wrong_method.t put a dir on SOMIR instead of a file.
